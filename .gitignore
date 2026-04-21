@@ -1,0 +1,9 @@
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+code
+submission_ids.log
+# main.cpp (uncomment if you want to keep it local)
+# main.cpp
+main_extended.cpp
