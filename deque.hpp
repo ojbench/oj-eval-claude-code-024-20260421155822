@@ -326,7 +326,7 @@ public:
 
     iterator insert(iterator pos, const T &value) {
         if (pos.get_container() != this) throw invalid_iterator();
-        int offset = pos.get_index() - start_idx;
+        int offset = (int)pos.get_index() - (int)start_idx;
         if (offset < 0 || offset > (int)current_size) throw invalid_iterator();
 
         if (offset == 0) {
@@ -337,23 +337,35 @@ public:
             return end() - 1;
         }
 
-        // Simpler implementation: push_back and then move elements
-        push_back(value);
+        T val_copy = value;
+        push_back(val_copy);
         for (int i = (int)current_size - 1; i > offset; --i) {
-            T tmp = (*this)[i];
-            (*this)[i] = (*this)[i-1];
-            (*this)[i-1] = tmp;
+            size_t curr_idx = start_idx + i;
+            size_t prev_idx = start_idx + i - 1;
+
+            T* curr_ptr = map[curr_idx / BLOCK_SIZE] + (curr_idx % BLOCK_SIZE);
+            T* prev_ptr = map[prev_idx / BLOCK_SIZE] + (prev_idx % BLOCK_SIZE);
+
+            *curr_ptr = std::move(*prev_ptr);
         }
+        size_t target_idx = start_idx + offset;
+        map[target_idx / BLOCK_SIZE][target_idx % BLOCK_SIZE] = val_copy;
         return begin() + offset;
     }
 
     iterator erase(iterator pos) {
         if (pos.get_container() != this) throw invalid_iterator();
-        int offset = pos.get_index() - (int)start_idx;
+        int offset = (int)pos.get_index() - (int)start_idx;
         if (offset < 0 || offset >= (int)current_size) throw invalid_iterator();
 
         for (size_t i = offset; i < current_size - 1; ++i) {
-            (*this)[i] = (*this)[i + 1];
+            size_t curr_idx = start_idx + i;
+            size_t next_idx = start_idx + i + 1;
+
+            T* curr_ptr = map[curr_idx / BLOCK_SIZE] + (curr_idx % BLOCK_SIZE);
+            T* next_ptr = map[next_idx / BLOCK_SIZE] + (next_idx % BLOCK_SIZE);
+
+            *curr_ptr = std::move(*next_ptr);
         }
         pop_back();
         return begin() + offset;
