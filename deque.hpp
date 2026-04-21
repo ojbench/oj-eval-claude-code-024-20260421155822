@@ -18,23 +18,23 @@ private:
 
     void expand_map() {
         size_t new_map_size = map_size * 2;
-        if (new_map_size == 0) new_map_size = 8;
+        if (new_map_size == 0) new_map_size = 16;
         T** new_map = new T*[new_map_size];
         for (size_t i = 0; i < new_map_size; ++i) new_map[i] = nullptr;
 
-        size_t new_map_start = (new_map_size - (current_size / BLOCK_SIZE + 2)) / 2;
         if (map) {
             size_t old_start_block = start_idx / BLOCK_SIZE;
-            size_t num_blocks = (start_idx + current_size + BLOCK_SIZE - 1) / BLOCK_SIZE - old_start_block;
-            if (current_size == 0) num_blocks = 0;
+            size_t old_end_block = (start_idx + current_size) == 0 ? old_start_block : (start_idx + current_size - 1) / BLOCK_SIZE;
+            size_t num_blocks = current_size == 0 ? 0 : (old_end_block - old_start_block + 1);
 
+            size_t new_map_start_block = (new_map_size - num_blocks) / 2;
             for (size_t i = 0; i < num_blocks; ++i) {
-                new_map[new_map_start + i] = map[old_start_block + i];
+                new_map[new_map_start_block + i] = map[old_start_block + i];
             }
             delete[] map;
-            start_idx = new_map_start * BLOCK_SIZE + (start_idx % BLOCK_SIZE);
+            start_idx = new_map_start_block * BLOCK_SIZE + (start_idx % BLOCK_SIZE);
         } else {
-            start_idx = new_map_start * BLOCK_SIZE;
+            start_idx = (new_map_size / 2) * BLOCK_SIZE;
         }
         map = new_map;
         map_size = new_map_size;
@@ -203,7 +203,6 @@ public:
             if (other.map[i]) {
                 map[i] = (T*)operator new(BLOCK_SIZE * sizeof(T));
                 size_t b_start = i * BLOCK_SIZE;
-                size_t b_end = (i + 1) * BLOCK_SIZE;
                 for (size_t j = 0; j < BLOCK_SIZE; ++j) {
                     size_t global_idx = b_start + j;
                     if (global_idx >= start_idx && global_idx < start_idx + current_size) {
@@ -361,12 +360,11 @@ public:
     }
 
     void push_back(const T &value) {
+        if (map_size == 0 || (start_idx + current_size) / BLOCK_SIZE + 1 >= map_size) {
+            expand_map();
+        }
         size_t next_idx = start_idx + current_size;
         size_t b_idx = next_idx / BLOCK_SIZE;
-        if (b_idx >= map_size) {
-            expand_map();
-            b_idx = (start_idx + current_size) / BLOCK_SIZE;
-        }
         allocate_block(b_idx);
         new (map[b_idx] + (next_idx % BLOCK_SIZE)) T(value);
         current_size++;
@@ -382,7 +380,7 @@ public:
     }
 
     void push_front(const T &value) {
-        if (start_idx == 0) {
+        if (map_size == 0 || start_idx == 0) {
             expand_map();
         }
         start_idx--;
